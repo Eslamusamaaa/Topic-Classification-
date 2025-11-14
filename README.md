@@ -24,7 +24,6 @@ Key components:
 The project demonstrates both educational (manual) and practical (scikit-learn) approaches to NLP text classification.
 
 ---
-
 ## Dataset
 
 The **AG News Classification Dataset** is a benchmark collection of news articles from the AG's corpus, categorized into 4 topics. It is commonly used for evaluating text classification models.
