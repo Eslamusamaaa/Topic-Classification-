@@ -3,7 +3,10 @@ from flask import Flask, request, jsonify
 import joblib
 import re
 import string
-import os
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from nltk.tokenize import word_tokenize
 
 app = Flask(__name__)
 
@@ -19,19 +22,47 @@ nb_model = joblib.load(MODEL_PATH)
 print("Models loaded successfully!\n")
 
 # ================================
-# 2. Preprocessing
+# 2. NLTK Setup (Downloads if needed)
 # ================================
-def preprocess(text):
-    text = text.lower()
-    text = re.sub(r'http[s]?://\S+', '', text)
-    text = re.sub(r'\S+@\S+', '', text)
-    text = re.sub(r'\d+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+nltk.download('punkt', quiet=True)
+nltk.download('wordnet', quiet=True)
+nltk.download('stopwords', quiet=True)
+
+lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
 
 # ================================
-# 3. Prediction Endpoint
+# 3. Preprocessing (EXACTLY matches training: lowercase, remove URLs/emails/numbers/punctuation, tokenize, stop words, lemmatize, re-join)
+# ================================
+def preprocess(text):
+    # 1. Lowercase
+    text = text.lower()
+    
+    # 2. Remove URLs
+    text = re.sub(r'http[s]?://\S+', '', text)
+    
+    # 3. Remove emails
+    text = re.sub(r'\S+@\S+', '', text)
+    
+    # 4. Remove numbers
+    text = re.sub(r'\d+', '', text)
+    
+    # 5. Remove punctuation
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    
+    # 6. Tokenize
+    tokens = word_tokenize(text)
+    
+    # 7. Remove stop words + Lemmatize
+    tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
+    
+    # 8. Re-join tokens into string
+    cleaned = ' '.join(tokens)
+    
+    return cleaned
+
+# ================================
+# 4. Prediction Endpoint
 # ================================
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -55,7 +86,7 @@ def predict():
     })
 
 # ================================
-# 4. Full Frontend in ONE HTML String
+# 5. Full Frontend in ONE HTML String
 # ================================
 @app.route('/')
 def home():
