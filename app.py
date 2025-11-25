@@ -1,4 +1,4 @@
-# app.py - Full News Topic Classifier (Frontend + Backend in ONE FILE)
+# app.py - Full News Topic Classifier (Backend + Frontend)
 from flask import Flask, request, jsonify
 import joblib
 import re
@@ -12,10 +12,10 @@ import numpy as np
 app = Flask(__name__)
 
 # ================================
-# 1. Load Models (Pick best combination from summary or manually)
+# 1. Load Best Vectorizer + Model
 # ================================
 BEST_VECTOR_PATH = r"C:\Users\Laptop World\Desktop\NLPPROJECT\tfidf_vectorizer.pkl"
-BEST_MODEL_PATH  = r"C:\Users\Laptop World\Desktop\NLPPROJECT\svc_tfidf_model.pkl"
+BEST_MODEL_PATH  = r"C:\Users\Laptop World\Desktop\NLPPROJECT\svc_tfidf_model.pkl"  # NB, LR, or SVC
 
 print("Loading vectorizer and model...")
 vectorizer = joblib.load(BEST_VECTOR_PATH)
@@ -35,22 +35,15 @@ stop_words = set(stopwords.words('english'))
 # ================================
 # 3. Preprocessing Function
 # ================================
-def preprocess(text):
-    # Lowercase
-    text = text.lower()
-    # Remove URLs
-    text = re.sub(r'http[s]?://\S+', '', text)
-    # Remove emails
-    text = re.sub(r'\S+@\S+', '', text)
-    # Remove numbers
-    text = re.sub(r'\d+', '', text)
-    # Remove punctuation
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    # Tokenize
+def preprocess(text: str) -> str:
+    """Preprocess text exactly as done during training."""
+    text = text.lower()  # Lowercase
+    text = re.sub(r'http[s]?://\S+', '', text)  # Remove URLs
+    text = re.sub(r'\S+@\S+', '', text)         # Remove emails
+    text = re.sub(r'\d+', '', text)             # Remove numbers
+    text = text.translate(str.maketrans('', '', string.punctuation))  # Remove punctuation
     tokens = word_tokenize(text)
-    # Remove stopwords + Lemmatize
-    tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
-    # Re-join
+    tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]  # Stopwords + lemmatize
     return ' '.join(tokens)
 
 # ================================
@@ -60,29 +53,28 @@ def preprocess(text):
 def predict():
     data = request.json
     text = data.get('text', '').strip()
-
     if not text:
         return jsonify({'error': 'Please enter text!'})
 
+    # Preprocess & vectorize
     cleaned = preprocess(text)
     vec = vectorizer.transform([cleaned])
 
-    # Prediction
+    # Predict label
     pred_label = model.predict(vec)[0]
 
-    # Confidence: check if model supports predict_proba
+    # Confidence calculation
     if hasattr(model, "predict_proba"):
         prob = model.predict_proba(vec)[0]
         confidence = max(prob) * 100
+    elif hasattr(model, "decision_function"):
+        df = model.decision_function(vec)
+        if len(df.shape) == 1:
+            df = np.expand_dims(df, axis=0)
+        df = np.exp(df) / np.sum(np.exp(df), axis=1, keepdims=True)  # Softmax
+        confidence = np.max(df) * 100
     else:
-        # For models like LinearSVC, approximate confidence via decision_function
-        if hasattr(model, "decision_function"):
-            df = model.decision_function(vec)
-            # convert to probability-like using softmax
-            df = np.exp(df) / np.sum(np.exp(df))
-            confidence = max(df) * 100
-        else:
-            confidence = 100.0  # fallback
+        confidence = 100.0  # fallback
 
     topics = {1: 'World', 2: 'Sports', 3: 'Business', 4: 'Sci/Tech'}
     return jsonify({
@@ -92,7 +84,7 @@ def predict():
     })
 
 # ================================
-# 5. Frontend HTML (kept intact)
+# 5. Frontend HTML
 # ================================
 @app.route('/')
 def home():
