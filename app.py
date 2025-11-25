@@ -7,22 +7,23 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
+import numpy as np
 
 app = Flask(__name__)
 
 # ================================
-# 1. Load Models (Same Path)
+# 1. Load Models (Pick best combination from summary or manually)
 # ================================
-MODEL_PATH = r"C:\Users\Laptop World\Desktop\NLPPROJECT\nb_classifier.pkl"
-VECTORIZER_PATH = r"C:\Users\Laptop World\Desktop\NLPPROJECT\tfidf_vectorizer.pkl"
+BEST_VECTOR_PATH = r"C:\Users\Laptop World\Desktop\NLPPROJECT\tfidf_vectorizer.pkl"
+BEST_MODEL_PATH  = r"C:\Users\Laptop World\Desktop\NLPPROJECT\svc_tfidf_model.pkl"
 
-print("Loading models...")
-vectorizer = joblib.load(VECTORIZER_PATH)
-nb_model = joblib.load(MODEL_PATH)
+print("Loading vectorizer and model...")
+vectorizer = joblib.load(BEST_VECTOR_PATH)
+model = joblib.load(BEST_MODEL_PATH)
 print("Models loaded successfully!\n")
 
 # ================================
-# 2. NLTK Setup (Downloads if needed)
+# 2. NLTK Setup
 # ================================
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -32,34 +33,25 @@ lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
 
 # ================================
-# 3. Preprocessing (EXACTLY matches training: lowercase, remove URLs/emails/numbers/punctuation, tokenize, stop words, lemmatize, re-join)
+# 3. Preprocessing Function
 # ================================
 def preprocess(text):
-    # 1. Lowercase
+    # Lowercase
     text = text.lower()
-    
-    # 2. Remove URLs
+    # Remove URLs
     text = re.sub(r'http[s]?://\S+', '', text)
-    
-    # 3. Remove emails
+    # Remove emails
     text = re.sub(r'\S+@\S+', '', text)
-    
-    # 4. Remove numbers
+    # Remove numbers
     text = re.sub(r'\d+', '', text)
-    
-    # 5. Remove punctuation
+    # Remove punctuation
     text = text.translate(str.maketrans('', '', string.punctuation))
-    
-    # 6. Tokenize
+    # Tokenize
     tokens = word_tokenize(text)
-    
-    # 7. Remove stop words + Lemmatize
-    tokens = [lemmatizer.lemmatize(word) for word in tokens if word not in stop_words]
-    
-    # 8. Re-join tokens into string
-    cleaned = ' '.join(tokens)
-    
-    return cleaned
+    # Remove stopwords + Lemmatize
+    tokens = [lemmatizer.lemmatize(w) for w in tokens if w not in stop_words]
+    # Re-join
+    return ' '.join(tokens)
 
 # ================================
 # 4. Prediction Endpoint
@@ -68,25 +60,39 @@ def preprocess(text):
 def predict():
     data = request.json
     text = data.get('text', '').strip()
-    
+
     if not text:
         return jsonify({'error': 'Please enter text!'})
-    
+
     cleaned = preprocess(text)
     vec = vectorizer.transform([cleaned])
-    pred = nb_model.predict(vec)[0]
-    prob = nb_model.predict_proba(vec)[0]
-    confidence = max(prob) * 100
-    
+
+    # Prediction
+    pred_label = model.predict(vec)[0]
+
+    # Confidence: check if model supports predict_proba
+    if hasattr(model, "predict_proba"):
+        prob = model.predict_proba(vec)[0]
+        confidence = max(prob) * 100
+    else:
+        # For models like LinearSVC, approximate confidence via decision_function
+        if hasattr(model, "decision_function"):
+            df = model.decision_function(vec)
+            # convert to probability-like using softmax
+            df = np.exp(df) / np.sum(np.exp(df))
+            confidence = max(df) * 100
+        else:
+            confidence = 100.0  # fallback
+
     topics = {1: 'World', 2: 'Sports', 3: 'Business', 4: 'Sci/Tech'}
     return jsonify({
-        'topic': topics[pred],
+        'topic': topics[pred_label],
         'confidence': round(confidence, 1),
         'cleaned': cleaned
     })
 
 # ================================
-# 5. Full Frontend in ONE HTML String
+# 5. Frontend HTML (kept intact)
 # ================================
 @app.route('/')
 def home():
@@ -227,7 +233,7 @@ def home():
     return html_content
 
 # ================================
-# 5. Run App
+# 6. Run App
 # ================================
 if __name__ == '__main__':
     print("Server running at http://localhost:5000")
