@@ -1,0 +1,7 @@
+
+# Generated
+data/train_cleaned_sentences.csv.gz
+train.log
+__pycache__/
+*.pyc
+.DS_Store
