@@ -1,0 +1,55 @@
+{
+  "best": {
+    "vectorizer": "tfidf",
+    "classifier": "Linear SVC"
+  },
+  "validation_accuracy": 0.8833,
+  "external_test_accuracy": 0.9096,
+  "comparison": [
+    {
+      "vectorizer": "binary",
+      "classifier": "Naive Bayes",
+      "val_accuracy": 0.8787
+    },
+    {
+      "vectorizer": "binary",
+      "classifier": "Logistic Regression",
+      "val_accuracy": 0.8756
+    },
+    {
+      "vectorizer": "binary",
+      "classifier": "Linear SVC",
+      "val_accuracy": 0.8617
+    },
+    {
+      "vectorizer": "count",
+      "classifier": "Naive Bayes",
+      "val_accuracy": 0.8779
+    },
+    {
+      "vectorizer": "count",
+      "classifier": "Logistic Regression",
+      "val_accuracy": 0.8763
+    },
+    {
+      "vectorizer": "count",
+      "classifier": "Linear SVC",
+      "val_accuracy": 0.8625
+    },
+    {
+      "vectorizer": "tfidf",
+      "classifier": "Naive Bayes",
+      "val_accuracy": 0.8792
+    },
+    {
+      "vectorizer": "tfidf",
+      "classifier": "Logistic Regression",
+      "val_accuracy": 0.8783
+    },
+    {
+      "vectorizer": "tfidf",
+      "classifier": "Linear SVC",
+      "val_accuracy": 0.8833
+    }
+  ]
+}
