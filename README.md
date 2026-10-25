@@ -48,6 +48,7 @@ Business and Sci/Tech are the hardest pair to separate (about 87-89% F1), Sports
 │   ├── ngram_lm.py        # manual unigram/bigram/trigram models with Laplace smoothing
 │   ├── train.py           # vectorizer x classifier comparison, evaluation, saving
 │   └── predictor.py       # loads the model and predicts one text
+├── notebooks/             # original exploration: NLP (cleaning), N-GRAM, Classifier (comparison)
 ├── data/                  # train.csv.gz, test.csv
 ├── models/                # tfidf_vectorizer.pkl, topic_classifier.pkl, metrics.json
 └── img/                   # screenshots and figures
@@ -101,6 +102,12 @@ Higher-order models are *worse* here: with a vocabulary of about 73,000 words, a
 probability mass to unseen bigrams and trigrams. Better smoothing (Kneser-Ney, backoff) would reverse the order.
 
 ![](img/Topic-Classification-/ngram_comparison.png)
+
+## Notebooks
+
+`notebooks/` keeps the original exploration (cleaning in `NLP`, manual n-grams in `N-GRAM`, model comparison in
+`Classifier`) with their outputs. The `.py` modules in `src/` are the maintained version; the notebooks still contain
+file paths from the original machine, so edit them before re-running.
 
 ## License
 
