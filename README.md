@@ -1,160 +1,107 @@
-# Topic-Classification-
-End-to-end NLP project for classifying AG News articles into four topics. Includes data cleaning, manual N-gram implementation, scikit-learn modeling with TF-IDF + Naive Bayes, and a full Flask web app for live text
 # AG News Topic Classifier
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-blue)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3.0-orange)
-![Flask](https://img.shields.io/badge/Flask-2.3.3-green)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5%2B-orange)
+![Flask](https://img.shields.io/badge/Flask-3.x-green)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
----
+End-to-end NLP project that classifies news articles into four topics (World, Sports, Business, Sci/Tech): text
+cleaning, hand-built n-gram language models, a comparison of vectorizers and classifiers, and a Flask web app for
+live predictions.
 
-## Project Overview
+| Sports | Business | Sci/Tech |
+|---|---|---|
+| ![](img/Topic-Classification-/app_sports.png) | ![](img/Topic-Classification-/app_business.png) | ![](img/Topic-Classification-/app_scitech.png) |
 
-This project implements a news topic classification system using the AG News dataset. It covers the full NLP pipeline: data preprocessing, manual N-gram implementation, scikit-learn-based modeling with TF-IDF and Naive Bayes, evaluation, and a Flask web app for real-time predictions.
+## Results
 
-Key components:
+| | Accuracy |
+|---|---|
+| Best model on validation (TF-IDF + Linear SVC, article-level split) | 88.3% |
+| **External test set (7,600 unseen articles)** | **91.0%** |
 
-* Data cleaning and sentence splitting.
-* Manual N-gram (Unigram, Bigram, Trigram) with Laplace smoothing.
-* scikit-learn pipeline for efficient feature extraction and classification.
-* Model saving/loading for reuse.
-* Single-file Flask app with embedded HTML/CSS/JS frontend.
+![](img/Topic-Classification-/model_comparison.png)
 
-The project demonstrates both educational (manual) and practical (scikit-learn) approaches to NLP text classification.
+![](img/Topic-Classification-/confusion_matrix.png)
 
----
+Business and Sci/Tech are the hardest pair to separate (about 87-89% F1), Sports is the easiest (96%).
+
+### How the evaluation is done
+
+- Training works on **sentences**, but all sentences of one article stay on the same side of the split
+  (`GroupShuffleSplit`). A plain random split puts sentences of the same article in train and validation, which
+  inflates the score.
+- The best vectorizer + classifier pair is chosen on validation data only; the external `test.csv` is used once at the end.
+- The final model is refit on all training sentences. Linear SVC has no probabilities, so it is wrapped in
+  `CalibratedClassifierCV`: the confidence shown in the app is a real calibrated probability, not a softmax of raw scores.
+
+## Project structure
+
+```
+├── config.py              # paths and constants
+├── run_pipeline.py        # EDA -> n-gram models -> training in one command
+├── app.py                 # Flask app
+├── templates/index.html   # front-end
+├── src/
+│   ├── preprocessing.py   # one clean_text() used by training AND the app
+│   ├── eda.py             # dataset figures
+│   ├── ngram_lm.py        # manual unigram/bigram/trigram models with Laplace smoothing
+│   ├── train.py           # vectorizer x classifier comparison, evaluation, saving
+│   └── predictor.py       # loads the model and predicts one text
+├── data/                  # train.csv.gz, test.csv
+├── models/                # tfidf_vectorizer.pkl, topic_classifier.pkl, metrics.json
+└── img/                   # screenshots and figures
+```
+
+## Setup and run
+
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+Open `http://127.0.0.1:5000`. The trained model is included. NLTK data (punkt, wordnet, stopwords) downloads
+automatically on first use. To rebuild everything from the raw data:
+
+```bash
+python run_pipeline.py
+```
+
+The first run cleans 120,000 articles (a few minutes) and caches the result in `data/`.
+
 ## Dataset
 
-The **AG News Classification Dataset** is a benchmark collection of news articles from the AG's corpus, categorized into 4 topics. It is commonly used for evaluating text classification models.
+The **AG News** benchmark: 120,000 training articles (30,000 per topic) and 7,600 test articles
+(1,900 per topic), each with `Class Index`, `Title` and `Description`.
 
-* **Source**: Derived from the AG News corpus (over 1 million news articles from more than 2000 sources).
-* **Classes**: 4 balanced topics (30,000 articles per class in training).
-* **Format**: Each sample includes `Class Index`, `Title`, and `Description`.
-* **Training Data**: 120,000 articles (`train.csv`).
-* **Test Data**: 7,600 articles (`test.csv`).
-* **Preprocessed Data**: `train_cleaned_with_sentences.csv` (cleaned titles and sentence-split descriptions).
-* **Average Description Length**: ~100–200 words.
-* **Balanced Distribution**: Equal number of samples per class.
-* **Preprocessing Applied**:
+| Label | Topic | Example |
+|---|---|---|
+| 1 | World | International politics, conflicts, UN meetings |
+| 2 | Sports | Match results, players, championships |
+| 3 | Business | Stocks, companies, oil prices, earnings |
+| 4 | Sci/Tech | AI, space, gadgets, scientific discoveries |
 
-  * Lowercase
-  * Remove URLs, emails, numbers, punctuation
-  * Tokenization
-  * Stop words removal
-  * Lemmatization
-  * Sentence segmentation
+![](img/Topic-Classification-/eda_overview.png)
 
-### Topics
+Preprocessing (`src/preprocessing.py`): lowercase, remove URLs, emails, numbers and punctuation, tokenize, remove
+stop words, lemmatize; descriptions are split into sentences first.
 
-| Label | Topic    | Example                                        |
-| ----- | -------- | ---------------------------------------------- |
-| 1     | World    | International politics, conflicts, UN meetings |
-| 2     | Sports   | Match results, players, championships          |
-| 3     | Business | Stocks, companies, oil prices, earnings        |
-| 4     | Sci/Tech | AI, space, gadgets, scientific discoveries     |
+## Manual n-gram language models
 
-> Download original: Kaggle AG News Dataset
+`src/ngram_lm.py` builds unigram, bigram and trigram counts by hand with Laplace (add-one) smoothing and scores
+sentences in log space (raw probability products underflow to zero on long sentences).
 
----
+| Model | Perplexity on 2,000 unseen sentences |
+|---|---|
+| Unigram | 5,423 |
+| Bigram | 13,963 |
+| Trigram | 33,198 |
 
-## Project Structure
+Higher-order models are *worse* here: with a vocabulary of about 73,000 words, add-one smoothing gives huge
+probability mass to unseen bigrams and trigrams. Better smoothing (Kneser-Ney, backoff) would reverse the order.
 
-```
-AG-News-Classifier/
-│
-├── app.py                          # Full Flask web app (backend + embedded frontend)
-│
-├── nb_classifier.pkl               # Trained Naive Bayes classifier (scikit-learn)
-├── tfidf_vectorizer.pkl            # TF-IDF vectorizer with N-gram (1-3)
-│
-├── data/
-│   ├── train.csv                   # Original training data (120,000 articles)
-│   ├── test.csv                    # Test data (7,600 articles)
-│   └── train_cleaned_with_sentences.csv  # Preprocessed training data
-│
-├── notebooks/
-│   ├── NLP.ipynb                   # Data preprocessing and cleaning
-│   ├── N-GRAM.ipynb                # Manual N-gram implementation
-│   └── sklearn_ngram_classification.ipynb  # scikit-learn pipeline and evaluation
-│
-├── requirements.txt                # Python dependencies
-└── README.md                       # This file
-```
-
----
-
-## Notebook Descriptions
-
-| Notebook                             | Description                                                                                                                                                                                                                                             |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NLP.ipynb`                          | Loads `train.csv`, performs preprocessing: lowercase → sentence segmentation → remove numbers/URLs/punctuation → tokenization → stop words removal → lemmatization. Saves result as `train_cleaned_with_sentences.csv`. Includes before/after examples. |
-| `N-GRAM.ipynb`                       | Manual implementation of Unigram, Bigram, Trigram counters with Laplace smoothing. Computes probabilities for sample sentences and visualizes comparisons (bar charts).                                                                                 |
-| `sklearn_ngram_classification.ipynb` | Builds scikit-learn pipeline: `TfidfVectorizer(ngram_range=(1,3))` + `MultinomialNB`. Trains on preprocessed data, evaluates on `test.csv`, saves models as `.pkl` files.                                                                               |
-
----
-
-## Web Application (`app.py`)
-
-A **single-file Flask app** with embedded HTML/CSS/JavaScript:
-
-* User inputs raw news text.
-* Backend preprocesses input, loads `.pkl` models, predicts topic.
-* Output: Predicted topic, confidence %, cleaned text preview.
-* Features: Progress bar, loading spinner, error handling.
-
-### How to Run
-
-```bash
-pip install -r requirements.txt
-python app.py
-# Open: http://localhost:5000
-```
-
----
-
-## Requirements (`requirements.txt`)
-
-```
-flask==2.3.3
-scikit-learn==1.3.0
-joblib==1.3.2
-pandas==2.0.3
-numpy==1.24.3
-matplotlib==3.7.1
-seaborn==0.12.2
-jupyter==1.0.0
-```
-
----
-
-## How to Use
-
-### Clone the repository
-
-```bash
-git clone https://github.com/yourusername/AG-News-Classifier.git
-cd AG-News-Classifier
-```
-
-### Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### Run notebooks
-
-Open Jupyter and explore preprocessing and model training.
-
-### Run the web app
-
-```bash
-python app.py
-```
-
----
+![](img/Topic-Classification-/ngram_comparison.png)
 
 ## License
 
-MIT License - Free to use, modify, and distribute.
+MIT License
