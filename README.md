@@ -29,8 +29,7 @@ Business and Sci/Tech are the hardest pair to separate (about 87-89% F1), Sports
 ### How the evaluation is done
 
 - Training works on **sentences**, but all sentences of one article stay on the same side of the split
-  (`GroupShuffleSplit`). A plain random split puts sentences of the same article in train and validation, which
-  inflates the score.
+  (`GroupShuffleSplit`). Splitting by article keeps the validation set independent of the training articles.
 - The best vectorizer + classifier pair is chosen on validation data only; the external `test.csv` is used once at the end.
 - The final model is refit on all training sentences. Linear SVC has no probabilities, so it is wrapped in
   `CalibratedClassifierCV`: the confidence shown in the app is a real calibrated probability, not a softmax of raw scores.

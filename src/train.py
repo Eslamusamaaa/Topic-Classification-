@@ -1,4 +1,4 @@
-"""Compare vectorizers x classifiers, evaluate honestly and save the best model.
+"""Compare vectorizers x classifiers, evaluate on held-out data and save the best model.
 
 Fixes compared with a plain sentence-level random split: sentences of the same article are never split between
 train and validation (no leakage), the best combination is chosen on validation data only, and the external
